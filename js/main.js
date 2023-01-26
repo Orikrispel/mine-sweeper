@@ -1,11 +1,23 @@
 'use strict'
-// Model: 
+// images
 const MINE = '<img style="width: 15px;" src="img/mine.png">'
 const NORMAL = '<img style="width: 40px;" src="img/normal.png">'
 const LOSE = '<img style="width: 40px;" src="img/lose.png">'
 const WIN = '<img style="width: 40px;" src="img/win.png">'
+// sounds:
+const WINNING = new Audio("sounds/winning.wav")
+WINNING.volume = 0.5
+const LOOSING = new Audio("sounds/loosing.mp3")
+LOOSING.volume = 0.5;
+const EXPLOSION = new Audio("sounds/explosion.wav")
+EXPLOSION.volume = 0.05;
+const HINTSOUND = new Audio("sounds/light.wav")
+HINTSOUND.volume = 0.5;
 
-
+// Model: 
+var gIntervalTimer
+var seconds
+var livesCount
 var gBoard
 var gLevel = {
     SIZE: 8,
@@ -24,6 +36,14 @@ var gGame = {
 
 
 function onInit() {
+    seconds = 0
+    livesCount = 3
+    safeClickLeft = 3
+    clearInterval(gIntervalTimer)
+    hideSafeButton()
+    document.querySelector('.timer').innerText = '000'
+    var MinesCounter = gLevel.MINES.toString().padStart(3, '0');
+    document.querySelector('.mines-counter').innerText = MinesCounter
     gGame.shownCount = 0
     gGame.markedCount = 0
     gGame.secsPassed = 0
@@ -105,6 +125,30 @@ function renderBoard(board) {
     strHTML += '</tbody></table>'
     const elContainer = document.querySelector('.board')
     elContainer.innerHTML = strHTML
+    // update hints and lives
+    renderLivesHints()
+}
+
+function chooseColor(minesCount) {
+    var color
+    switch (minesCount) {
+        case 1: color = '#4B87EC'
+            return color
+        case 2: color = '#ECB366'
+            return color
+        case 3: color = '#04C988'
+            return color
+        case 4: color = '#950202'
+            return color
+        case 5: color = '#10054D'
+            return color
+        case 6: color = '#430617'
+            return color
+        case 7: color = '#CD7239'
+            return color
+        case 8: color = '#171717'
+            return color
+    }
 }
 
 function renderCell(board, i, j) {
@@ -117,39 +161,62 @@ function renderCell(board, i, j) {
     innerText = (innerText === 0) ? '' : innerText
     elCell.classList += className
     elCell.innerHTML = innerText
-    gGame.shownCount++
-    console.log('gGame shownCount:', gGame.shownCount)
+    if (innerText >= 1) {
+        const color = chooseColor(cell.minesAroundCount)
+        elCell.style.color = `${color}`
+    }
+    if (!cell.isMine && !isHint) gGame.shownCount++
 }
 
 function onCellClicked(elCell, i, j) {
     if (!gGame.isOn) return
     if (!elCell.classList.contains('hide')) return
     if (elCell.classList.contains('marked')) return
-    // 2. Clicking a safe cell reveals the minesAroundCount of this cell
     if (gGame.firstClick.i === null) {
         gGame.firstClick.i = i
         gGame.firstClick.j = j
         buildBoard()
+        showSafeButton()
+        gIntervalTimer = setInterval(startTimer, 1000)
     }
 
+    if (isHint) {
+        showHintCells(gBoard, i, j)
+        return
+    }
     var currCell = gBoard[i][j]
     if (currCell.isMine) {
-        elCell.style.background = 'lightcoral'
-        GameOver()
+        document.querySelector(`.life-${livesCount}`).hidden = true
+        livesCount--
+        if (livesCount) EXPLOSION.play()
+        elCell.style.background = '#FF6961'
+        //model:
+        gBoard[i][j].isShown = true
+        //dom:
+        renderCell(gBoard, i, j)
+        var diff = gLevel.MINES - gGame.markedCount - (3 - livesCount)
+        var MinesCounter = (diff >= 0) ? diff.toString().padStart(3, '0') : '-' + (Math.abs(diff)).toString().padStart(2, '0');
+        document.querySelector('.mines-counter').innerText = MinesCounter
+        checkgameOver()
     }
     if (currCell.minesAroundCount >= 0) {
         expandShown(gBoard, i, j)
     }
-    checkGameOver()
+    checkgameOver()
 }
 
 function onCellMarked(elCell, i, j, ev) {
     if (!gGame.isOn) return
+    if (!elCell.classList.contains('hide')) return
     ev.preventDefault()
     gGame.markedCount += (!gBoard[i][j].isMarked) ? 1 : -1
     elCell.classList.toggle('marked')
     gBoard[i][j].isMarked = !gBoard[i][j].isMarked
-    checkGameOver()
+    // Update mines counter
+    var diff = gLevel.MINES - (3 - livesCount) - gGame.markedCount
+    var MinesCounter = (diff >= 0) ? diff.toString().padStart(3, '0') : '-' + (Math.abs(diff)).toString().padStart(2, '0');
+    document.querySelector('.mines-counter').innerText = MinesCounter
+    checkgameOver()
 }
 
 function expandShown(board, i, j) {
@@ -161,35 +228,53 @@ function expandShown(board, i, j) {
             for (var k = j - 1; k <= j + 1; k++) {
                 if (k < 0 || k >= board[n].length) continue
                 if (n === i && k === j) continue
-                if (!board[n][k].isShown) expandShown(board, n, k)
+                const cell = board[n][k]
+                if (!cell.isShown && !cell.isMarked) expandShown(board, n, k)
             }
         }
     }
     renderCell(board, i, j)
 }
 
-function checkGameOver() {
-    if (gGame.shownCount === (gLevel.SIZE ** 2 - gLevel.MINES) &&
-        gGame.markedCount === gLevel.MINES) {
-        const elBtn = document.querySelector('.play-again')
-        elBtn.innerHTML = WIN
-        gGame.isOn = false
+function checkgameOver() {
+    var notMines = (gLevel.SIZE ** 2 - gLevel.MINES)
+    var currFlags = gGame.markedCount + (3 - livesCount)
+    if (gGame.shownCount === notMines &&
+        gLevel.MINES === currFlags) {
+        victory()
+    }
+
+    if (livesCount === 0) {
+        gameOver()
     }
     return
 }
 
-function GameOver() {
+function gameOver() {
+    LOOSING.play()
+    // Show all mines on board and hide flags
     for (var i = 0; i < gBoard.length; i++) {
         for (var j = 0; j < gBoard[0].length; j++) {
             const cell = gBoard[i][j]
             if (cell.isMine) {
                 var elCell = document.querySelector(`.cell-${i}-${j}`)
                 elCell.classList.remove('hide')
+                elCell.classList.remove('marked')
                 renderCell(gBoard, i, j)
             }
         }
     }
     const elBtn = document.querySelector('.play-again')
     elBtn.innerHTML = LOSE
+    clearInterval(gIntervalTimer)
     gGame.isOn = false
 }
+
+function victory() {
+    WINNING.play()
+    const elBtn = document.querySelector('.play-again')
+    elBtn.innerHTML = WIN
+    clearInterval(gIntervalTimer)
+    gGame.isOn = false
+}
+

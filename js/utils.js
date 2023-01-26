@@ -17,13 +17,12 @@ function createSquareMat(ROWS) {
     return mat
 }
 
-// location is an object like this - { i: 2, j: 7 }
-function renderCell(location, value) {
-    // Select the elCell and set the value
-    const elCell = document.querySelector(`.cell-${location.i}-${location.j}`)
-    elCell.innerHTML = value
-}
-
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min)) + min
+}
+
+function startTimer() {
+    seconds++;
+    var display = seconds.toString().padStart(3, '0');
+    document.querySelector('.timer').innerText = display
 }

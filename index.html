@@ -17,18 +17,40 @@
 </head>
 
 <body onload="onInit()">
+    <h1><span>M</span>ine<span>S</span>weeper</h1>
     <div class="game">
-        <h1 class="msg"></h1>
+        <button class="dark-mode-btn" title="Dark Mode" onclick="toggleDarkMode(this)">
+            <img style=" width: 25px;" src="img/moon-light.png">
+        </button>
+        <button hidden class="safe safe-btn" onclick="showSafeCell(this)">
+            <img style=" width: 25px;" src="img/lifebuoy-dark.png">
+        </button>
+        <span hidden class="available-safe-clicks"><span>3</span> clicks available</span>
         <div class="header">
-            <div class="timer">020</div>
-            <button onclick="onInit()" class="play-again"></button>
-            <div class="counter">010</div>
+            <section class="indicator">
+                <div class="timer">000</div>
+                <button onclick="onInit()" title="Play Again" class="play-again"></button>
+                <div class="mines-counter">000</div>
+            </section>
+            <section class="level">
+                <button onclick="gameLevel(4, 2)">Easy</button>
+                <button onclick="gameLevel(8, 14)">Hurd</button>
+                <button onclick="gameLevel(12, 32)">Extreme</button>
+            </section>
+            <section class="hint-life-indicator">
+                <div class="lives"></div>
+                <div class="hints"></div>
+            </section>
         </div>
+
         <div class="board"></div>
     </div>
 
+    <footer>© Made by Ori Krispel - CAJAN2023</footer>
+
     <script src="js/utils.js"></script>
     <script src="js/main.js"></script>
+    <script src="js/modes.js"></script>
 </body>
 
 </html>
